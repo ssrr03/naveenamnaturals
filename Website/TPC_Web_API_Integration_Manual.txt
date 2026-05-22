@@ -1,0 +1,172 @@
+The Professional Couriers (TPC)
+Web API Integration Manual for Shipping Partners
+
+Version: 2.1 | Release Date: April 2026
+Confidential - For Partner Use Only
+================================================================================
+
+1. Introduction
+--------------------------------------------------------------------------------
+Welcome to The Professional Couriers (TPC) API Documentation. This manual 
+provides comprehensive technical instructions for shipping partners, eCommerce 
+platforms, and OMS developers to integrate TPC's nationwide logistics 
+capabilities into their applications. By integrating this RESTful API, partners 
+can seamlessly automate order manifestation, generate compliant shipping labels, 
+check pin code serviceability, track shipments in real time, and manage Order 
+NDR (Non-Delivery Report) actions.
+
+1.1 Logistics Services Supported
+* Pro Premium: Guaranteed priority delivery across major metros.
+* Dawn to Dusk: Same-day delivery services for shipments booked in the morning.
+* Air Cargo / Surface Cargo: For bulk consignments and B2B freight.
+
+
+2. Environments & Authentication
+--------------------------------------------------------------------------------
+TPC provides two distinct environments. Partners must certify their integration 
+in the Sandbox before moving to Production.
+
+Sandbox URL: https://api-sandbox.tpcglobe.com/v1
+Production URL: https://api.tpcglobe.com/v1
+
+2.1 Authentication Header
+All API requests require Bearer Token authentication. Your unique Partner API 
+Key can be obtained from the TPC Partner Portal.
+
+Authorization: Bearer <YOUR_PARTNER_API_KEY>
+Content-Type: application/json
+
+
+3. Core API Endpoints
+--------------------------------------------------------------------------------
+
+3.1 Check Pin Code Serviceability
+Endpoint: GET /serviceability
+Description: Verifies if TPC can deliver from the origin PIN code to the 
+             destination PIN code and returns the estimated delivery timeframe.
+Query Parameters:
+- origin_pin (string, required)
+- dest_pin (string, required)
+- order_weight (float, optional)
+
+Response Example:
+{
+  "success": true,
+  "data": {
+    "serviceable": true,
+    "edd": "2026-04-28",
+    "available_services": ["PRO_PREMIUM", "SURFACE_CARGO"]
+  }
+}
+
+3.2 Create Shipment (Manifestation)
+Endpoint: POST /shipments
+Description: Creates a new shipment in the TPC system, assigns a 7-12 character 
+             alphanumeric AWB (Consignment Number), and generates a shipping 
+             label URL.
+
+Request Body Example:
+{
+  "order_id": "ORD-99382",
+  "service_type": "PRO_PREMIUM",
+  "payment_mode": "PREPAID",
+  "shipper": {
+    "name": "Acme Corp",
+    "phone": "9876543210",
+    "address": "123 Tech Park",
+    "city": "Bangalore",
+    "pin": "560001"
+  },
+  "consignee": {
+    "name": "John Doe",
+    "phone": "9123456780",
+    "address": "456 Main St",
+    "city": "Chennai",
+    "pin": "600001"
+  },
+  "parcel": {
+    "weight_kg": 1.5,
+    "length_cm": 20,
+    "width_cm": 15,
+    "height_cm": 10,
+    "content_desc": "Electronics"
+  }
+}
+
+Response Example:
+{
+  "success": true,
+  "message": "Shipment manifested successfully",
+  "data": {
+    "awb_number": "MAA12345678",
+    "routing_code": "MAA-SOU-01",
+    "label_url": "https://api.tpcglobe.com/labels/MAA12345678.pdf"
+  }
+}
+
+3.3 Track Shipment
+Endpoint: GET /tracking/{awb_number}
+Description: Retrieves real-time tracking checkpoints for a given AWB. TPC 
+             consignment numbers typically start with a 3-letter station code 
+             (e.g., BOM, MAA) followed by digits.
+
+Response Example:
+{
+  "success": true,
+  "awb_number": "MAA12345678",
+  "current_status": "IN_TRANSIT",
+  "scans": [
+    {
+      "timestamp": "2026-04-25T10:30:00Z",
+      "location": "Chennai Hub",
+      "status": "Manifested / Booked",
+      "remarks": "Shipment picked up"
+    },
+    {
+      "timestamp": "2026-04-25T18:45:00Z",
+      "location": "Bangalore Hub",
+      "status": "Received at Facility",
+      "remarks": "In Transit"
+    }
+  ]
+}
+
+3.4 Cancel Shipment
+Endpoint: POST /shipments/{awb_number}/cancel
+Description: Cancels a manifested shipment. Note: Shipments can only be 
+             cancelled before they are marked as 'Picked Up' or 'In Transit'.
+
+
+4. Webhook Integrations
+--------------------------------------------------------------------------------
+Instead of polling the tracking endpoint, partners should implement webhooks to 
+receive real-time push notifications for shipment updates. Configure your 
+Webhook Listener URL in the TPC Partner Dashboard.
+
+Events Supported:
+* SHIPMENT_PICKED_UP
+* SHIPMENT_IN_TRANSIT
+* SHIPMENT_OUT_FOR_DELIVERY
+* SHIPMENT_DELIVERED
+* SHIPMENT_NDR (Non-Delivery Report)
+
+
+5. Error Codes & Statuses
+--------------------------------------------------------------------------------
+HTTP Code | Error Code            | Description
+--------------------------------------------------------------------------------
+400       | ERR_INVALID_PIN       | The origin or destination PIN is invalid.
+401       | ERR_UNAUTHORIZED      | Missing or invalid Bearer token.
+404       | ERR_AWB_NOT_FOUND     | Requested tracking number doesn't exist.
+422       | ERR_VALIDATION_FAILED | Missing required fields in the payload.
+500       | ERR_INTERNAL_SERVER   | TPC systems are currently unavailable.
+
+
+6. Support & Contact
+--------------------------------------------------------------------------------
+For integration support, credential generation, or technical queries, please 
+contact your designated account manager or reach out to the API Support Team.
+
+Email: api-support@tpcglobe.com
+Phone: 022-27813309 (All India Helpline)
+Developer Portal: https://partners.tpcglobe.com

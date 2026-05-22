@@ -16,6 +16,9 @@ import {
   IconHome,
   IconMail,
   IconPackage,
+  IconRss,
+  IconTruck,
+  IconBoxMultiple,
 } from "@tabler/icons-react";
 
 import { NavMain } from "@/components/nav-main";
@@ -64,6 +67,16 @@ const data = {
       icon: IconTicket,
     },
     {
+      title: "Combos",
+      url: "/combos",
+      icon: IconBoxMultiple,
+    },
+    {
+      title: "Subscriptions",
+      url: "/subscriptions",
+      icon: IconRss,
+    },
+    {
       title: "Reviews",
       url: "/reviews",
       icon: IconStar,
@@ -77,6 +90,11 @@ const data = {
       title: "Email & Notification",
       url: "/email-notification",
       icon: IconMail,
+    },
+    {
+      title: "Shipping Test",
+      url: "/shipping-test",
+      icon: IconTruck,
     },
   ],
 

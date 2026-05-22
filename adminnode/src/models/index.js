@@ -38,6 +38,8 @@ db.orderItem = require("./orderItem.model")(sequelize, DataTypes);
 db.coupon = require("./coupon.model")(sequelize, DataTypes);
 db.review = require("./review.model")(sequelize, DataTypes);
 db.couponRedemption = require("./couponRedemption.model")(sequelize, DataTypes);
+db.combo = require("./combo.model")(sequelize, DataTypes);
+db.comboItem = require("./comboItem.model")(sequelize, DataTypes);
 
 // ✅ Register Additional Models
 db.contact = require("./contact.model")(sequelize, DataTypes);
@@ -130,6 +132,43 @@ db.couponRedemption.belongsTo(db.customer, {
 db.customer.hasMany(db.couponRedemption, {
   foreignKey: "customerId",
   as: "couponRedemptions",
+});
+
+// Combo Associations
+db.combo.belongsTo(db.category, {
+  foreignKey: "categoryId",
+  as: "category",
+});
+db.category.hasMany(db.combo, {
+  foreignKey: "categoryId",
+  as: "combos",
+});
+
+db.combo.hasMany(db.comboItem, {
+  foreignKey: "comboId",
+  as: "items",
+});
+db.comboItem.belongsTo(db.combo, {
+  foreignKey: "comboId",
+  as: "combo",
+});
+
+db.comboItem.belongsTo(db.product, {
+  foreignKey: "productId",
+  as: "product",
+});
+db.product.hasMany(db.comboItem, {
+  foreignKey: "productId",
+  as: "comboItems",
+});
+
+db.comboItem.belongsTo(db.productVariant, {
+  foreignKey: "variantId",
+  as: "variant",
+});
+db.productVariant.hasMany(db.comboItem, {
+  foreignKey: "variantId",
+  as: "comboItems",
 });
 
 module.exports = db;

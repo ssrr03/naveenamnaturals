@@ -173,4 +173,7 @@ router.post("/cancel", shippingController.cancelShipment);
  */
 router.get("/track", shippingController.trackShipment);
 
+// Debug endpoint - shows TPC configuration
+router.get("/debug", shippingController.getDebugInfo);
+
 module.exports = router;

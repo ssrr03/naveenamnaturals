@@ -16,12 +16,12 @@ const nextConfig: NextConfig = {
       {
         protocol: "http",
         hostname: "localhost",
-        port: "",
+        port: "5005",
         pathname: "/uploads/**",
       },
       {
-        protocol: "https",
-        hostname: "api.naveenamnaturals.com",
+        protocol: "http",
+        hostname: "localhost",
         port: "",
         pathname: "/uploads/**",
       },
@@ -34,7 +34,6 @@ const nextConfig: NextConfig = {
     ],
     domains: [
       "localhost",
-      "api.naveenamnaturals.com",
       "api.karthikeyanvenkidusamy.com",
     ],
   },

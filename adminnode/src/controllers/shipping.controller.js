@@ -4,7 +4,7 @@ const {
   productVariant,
   customer,
 } = require("../models");
-const professionalCourierService = require("../services/professional-courier.service");
+const tpcGlobeService = require("../services/tpc-globe.service");
 const {
   parseWeightToKg,
   formatWeightForPayload,
@@ -59,7 +59,7 @@ const buildOrderItemsPayload = (items = []) =>
   });
 
 const buildShippingStateUpdateData = (shipment = {}, overrides = {}) => ({
-  shippingProvider: professionalCourierService.PROVIDER_NAME,
+  shippingProvider: tpcGlobeService.PROVIDER_NAME,
   shippingProviderOrderId:
     shipment.providerOrderId || overrides.shippingProviderOrderId || null,
   shippingShipmentId: shipment.shipmentId || overrides.shippingShipmentId || null,
@@ -70,7 +70,7 @@ const buildShippingStateUpdateData = (shipment = {}, overrides = {}) => ({
   shippingBookingStage:
     shipment.shippingBookingStage ||
     overrides.shippingBookingStage ||
-    professionalCourierService.BOOKING_STAGE_NOT_CREATED,
+    tpcGlobeService.BOOKING_STAGE_NOT_CREATED,
   trackingNumber:
     shipment.awbNumber !== undefined
       ? shipment.awbNumber || null
@@ -78,7 +78,7 @@ const buildShippingStateUpdateData = (shipment = {}, overrides = {}) => ({
   shippingCarrier:
     shipment.courierName ||
     overrides.shippingCarrier ||
-    (shipment.awbNumber ? professionalCourierService.PROVIDER_LABEL : null),
+    (shipment.awbNumber ? tpcGlobeService.PROVIDER_LABEL : null),
 });
 
 const getOrderShippingInclude = () => [
@@ -112,20 +112,20 @@ const hydrateOrderForShipping = async (orderIdOrNumber, by = "id") =>
 const syncOrderTrackingState = async (orderRecord, trackingData) => {
   if (!orderRecord || !trackingData) return;
 
-  const mappedStatus = professionalCourierService.mapTrackingToOrderStatus(trackingData);
+  const mappedStatus = tpcGlobeService.mapTrackingToOrderStatus(trackingData);
   const updateData = buildShippingStateUpdateData(trackingData, {
     shippingProviderOrderId: orderRecord.shippingProviderOrderId,
     shippingShipmentId: orderRecord.shippingShipmentId,
     shippingBookingStage:
       trackingData.awbNumber || orderRecord.trackingNumber
-        ? professionalCourierService.BOOKING_STAGE_BOOKED
+        ? tpcGlobeService.BOOKING_STAGE_BOOKED
         : orderRecord.shippingBookingStage ||
-          professionalCourierService.BOOKING_STAGE_NOT_CREATED,
+          tpcGlobeService.BOOKING_STAGE_NOT_CREATED,
     trackingNumber: trackingData.awbNumber || orderRecord.trackingNumber,
     shippingCarrier:
       trackingData.carrier ||
       orderRecord.shippingCarrier ||
-      professionalCourierService.PROVIDER_LABEL,
+      tpcGlobeService.PROVIDER_LABEL,
   });
 
   if (mappedStatus === "delivered") {
@@ -281,51 +281,51 @@ const createProviderOrderForOrderRecord = async (
   if (
     !options.force &&
     orderRecord.shippingBookingStage ===
-      professionalCourierService.BOOKING_STAGE_ORDER_CREATED &&
+      tpcGlobeService.BOOKING_STAGE_ORDER_CREATED &&
     orderRecord.shippingShipmentId
   ) {
     return {
-      provider: professionalCourierService.PROVIDER_NAME,
+      provider: tpcGlobeService.PROVIDER_NAME,
       providerOrderId: orderRecord.shippingProviderOrderId,
       shipmentId: orderRecord.shippingShipmentId,
-      latestStatus: professionalCourierService.BOOKING_STAGE_ORDER_CREATED,
+      latestStatus: tpcGlobeService.BOOKING_STAGE_ORDER_CREATED,
       latestStatusLabel:
-        orderRecord.shippingLatestStatus || "Shiprocket Order Created",
-      shippingBookingStage: professionalCourierService.BOOKING_STAGE_ORDER_CREATED,
+        orderRecord.shippingLatestStatus || "TPC Globe Order Created",
+      shippingBookingStage: tpcGlobeService.BOOKING_STAGE_ORDER_CREATED,
     };
   }
 
   if (
     !options.force &&
-    orderRecord.shippingBookingStage === professionalCourierService.BOOKING_STAGE_BOOKED &&
+    orderRecord.shippingBookingStage === tpcGlobeService.BOOKING_STAGE_BOOKED &&
     (orderRecord.shippingShipmentId || orderRecord.trackingNumber)
   ) {
     return {
-      provider: professionalCourierService.PROVIDER_NAME,
+      provider: tpcGlobeService.PROVIDER_NAME,
       providerOrderId: orderRecord.shippingProviderOrderId,
       shipmentId: orderRecord.shippingShipmentId,
       awbNumber: orderRecord.trackingNumber,
       courierName: orderRecord.shippingCourierName || orderRecord.shippingCarrier,
       latestStatus: orderRecord.shippingLatestStatus,
       latestStatusLabel: orderRecord.shippingLatestStatus || "Shipment Booked",
-      shippingBookingStage: professionalCourierService.BOOKING_STAGE_BOOKED,
+      shippingBookingStage: tpcGlobeService.BOOKING_STAGE_BOOKED,
     };
   }
 
   const consignmentData = buildConsignmentForOrderRecord(orderRecord, basePayload);
-  const providerOrder = await professionalCourierService.createProviderOrder(consignmentData);
+  const shipment = await tpcGlobeService.createShipment(consignmentData);
 
   await orderRecord.update(
-    buildShippingStateUpdateData(providerOrder, {
-      shippingBookingStage: professionalCourierService.BOOKING_STAGE_ORDER_CREATED,
-      trackingNumber: orderRecord.trackingNumber || null,
-      shippingCarrier: orderRecord.shippingCarrier || null,
+    buildShippingStateUpdateData(shipment, {
+      shippingBookingStage: tpcGlobeService.BOOKING_STAGE_BOOKED,
+      trackingNumber: shipment.awbNumber || orderRecord.trackingNumber,
+      shippingCarrier: "TPC Globe",
     }),
   );
 
   return {
-    ...providerOrder,
-    shippingBookingStage: professionalCourierService.BOOKING_STAGE_ORDER_CREATED,
+    ...shipment,
+    shippingBookingStage: tpcGlobeService.BOOKING_STAGE_BOOKED,
   };
 };
 
@@ -335,41 +335,27 @@ const bookShipmentForOrderRecord = async (orderRecord, basePayload = {}) => {
   }
 
   if (
-    orderRecord.shippingBookingStage === professionalCourierService.BOOKING_STAGE_BOOKED &&
+    orderRecord.shippingBookingStage === tpcGlobeService.BOOKING_STAGE_BOOKED &&
     orderRecord.trackingNumber
   ) {
     return {
-      provider: professionalCourierService.PROVIDER_NAME,
-      providerOrderId: orderRecord.shippingProviderOrderId,
+      provider: tpcGlobeService.PROVIDER_NAME,
       shipmentId: orderRecord.shippingShipmentId,
       awbNumber: orderRecord.trackingNumber,
       courierName: orderRecord.shippingCourierName || orderRecord.shippingCarrier,
       latestStatus: orderRecord.shippingLatestStatus,
       latestStatusLabel: orderRecord.shippingLatestStatus || "Shipment Booked",
-      shippingBookingStage: professionalCourierService.BOOKING_STAGE_BOOKED,
+      shippingBookingStage: tpcGlobeService.BOOKING_STAGE_BOOKED,
     };
   }
 
+  // For TPC Globe, createShipment directly books the shipment, no separate booking step needed
   const consignmentData = buildConsignmentForOrderRecord(orderRecord, basePayload);
-  let shippingShipmentId = orderRecord.shippingShipmentId;
-  let shippingProviderOrderId = orderRecord.shippingProviderOrderId;
-
-  if (!shippingShipmentId) {
-    const providerOrder = await createProviderOrderForOrderRecord(orderRecord, basePayload);
-    shippingShipmentId = providerOrder.shipmentId;
-    shippingProviderOrderId = providerOrder.providerOrderId;
-  }
-
-  const shipment = await professionalCourierService.bookProviderShipment({
-    ...consignmentData,
-    shipment_id: shippingShipmentId,
-    providerOrderId: shippingProviderOrderId,
-  });
+  const shipment = await tpcGlobeService.createShipment(consignmentData);
 
   const updateData = buildShippingStateUpdateData(shipment, {
-    shippingProviderOrderId,
-    shippingShipmentId,
-    shippingBookingStage: professionalCourierService.BOOKING_STAGE_BOOKED,
+    shippingShipmentId: shipment.awbNumber,
+    shippingBookingStage: tpcGlobeService.BOOKING_STAGE_BOOKED,
   });
   if (["pending", "confirmed", "processing"].includes(orderRecord.status)) {
     updateData.status = "confirmed";
@@ -379,14 +365,16 @@ const bookShipmentForOrderRecord = async (orderRecord, basePayload = {}) => {
   await orderRecord.update(updateData);
   return {
     ...shipment,
-    shippingBookingStage: professionalCourierService.BOOKING_STAGE_BOOKED,
+    shippingBookingStage: tpcGlobeService.BOOKING_STAGE_BOOKED,
   };
 };
 
 const checkServiceability = async (req, res) => {
   try {
     const { originPincode, destPincode, weight, cod, declaredValue } = req.body;
-    const origin = originPincode || process.env.WAREHOUSE_PINCODE || "600010";
+    const origin = { 
+      pincode: originPincode || process.env.WAREHOUSE_PINCODE || "600010" 
+    };
     const isCod =
       cod === true || cod === "true" || cod === 1 || cod === "1";
 
@@ -397,7 +385,15 @@ const checkServiceability = async (req, res) => {
       });
     }
 
-    const result = await professionalCourierService.checkServiceability(origin, destPincode, {
+    console.log("Checking serviceability with:", {
+      originPincode: origin.pincode,
+      destPincode,
+      weight,
+      cod: isCod,
+      declaredValue,
+    });
+
+    const result = await tpcGlobeService.checkServiceability(origin, destPincode, {
       weight,
       cod: isCod,
       declaredValue,
@@ -406,12 +402,13 @@ const checkServiceability = async (req, res) => {
     if (!result.serviceable) {
       return res.json({
         success: false,
-        message: "Service not available for this pincode",
+        message: "TPC Globe service not available for this pincode",
         data: {
           serviceable: false,
-          shippingRate: 0,
-          provider: professionalCourierService.PROVIDER_NAME,
+          edd: null,
+          provider: tpcGlobeService.PROVIDER_NAME,
         },
+        tpcApiDetails: result.tpcApiDetails,
       });
     }
 
@@ -419,16 +416,16 @@ const checkServiceability = async (req, res) => {
       success: true,
       data: {
         serviceable: true,
-        shippingRate: result.shippingRate,
-        provider: result.provider,
-        estimatedDays: result.estimatedDays,
-        courierName: result.courierName,
-        courierCompanyId: result.courierCompanyId,
-        details: result.details,
+        edd: result.edd,
+        available_services: result.available_services || ["PRO_PREMIUM"],
+        provider: tpcGlobeService.PROVIDER_NAME,
+        recommended_service: result.recommended_service || "PRO_PREMIUM",
       },
+      tpcApiDetails: result.tpcApiDetails,
     });
   } catch (error) {
-    console.error("Shiprocket pincode check error:", error.message);
+    console.error("Professional Courier pincode check error:", error.message);
+    console.error("Full error:", error);
     res.status(500).json({
       success: false,
       message: "Failed to check serviceability",
@@ -461,7 +458,7 @@ const createShipment = async (req, res) => {
 
       return res.json({
         success: true,
-        message: "Shiprocket shipment booked successfully",
+        message: "Professional Courier shipment booked successfully",
         data: shipment,
         awbNumber: shipment.awbNumber,
       });
@@ -469,7 +466,7 @@ const createShipment = async (req, res) => {
       consignmentData.origin_details = buildOriginDetails(consignmentData.origin_details);
     }
 
-    const shipment = await professionalCourierService.createShipment(consignmentData);
+    const shipment = await tpcGlobeService.createShipment(consignmentData);
 
     res.json({
       success: true,
@@ -477,7 +474,7 @@ const createShipment = async (req, res) => {
       awbNumber: shipment.awbNumber,
     });
   } catch (error) {
-    console.error("Create Shiprocket shipment error:", error.message);
+    console.error("Create Professional Courier shipment error:", error.message);
     const statusCode =
       error.message?.includes("does not service") ||
       error.message?.includes("destination pincode")
@@ -498,7 +495,7 @@ const createProviderOrder = async (req, res) => {
     if (!consignmentData.order_id) {
       return res.status(400).json({
         success: false,
-        message: "order_id is required to create a Shiprocket order",
+        message: "order_id is required to create a Professional Courier order",
       });
     }
 
@@ -521,14 +518,14 @@ const createProviderOrder = async (req, res) => {
 
     return res.json({
       success: true,
-      message: "Shiprocket order created successfully",
+      message: "Professional Courier order created successfully",
       data: providerOrder,
     });
   } catch (error) {
-    console.error("Create Shiprocket provider order error:", error.message);
+    console.error("Create Professional Courier provider order error:", error.message);
     res.status(500).json({
       success: false,
-      message: "Failed to create Shiprocket order",
+      message: "Failed to create Professional Courier order",
       error: error.details || error.message,
     });
   }
@@ -556,7 +553,7 @@ const getShippingLabel = async (req, res) => {
     if (orderRecord?.shippingShipmentId) {
       shipmentId = orderRecord.shippingShipmentId;
     } else {
-      const trackingData = await professionalCourierService.trackShipment(referenceNumber);
+      const trackingData = await tpcGlobeService.trackShipment(referenceNumber);
       shipmentId = trackingData.shipmentId;
     }
 
@@ -567,11 +564,11 @@ const getShippingLabel = async (req, res) => {
       });
     }
 
-    const labelPdf = await professionalCourierService.getShippingLabel(shipmentId);
+    const labelPdf = await tpcGlobeService.getShippingLabel(shipmentId);
     res.set("Content-Type", "application/pdf");
     res.send(labelPdf);
   } catch (error) {
-    console.error("Get Shiprocket label error:", error.message);
+    console.error("Get Professional Courier label error:", error.message);
     res.status(500).json({
       success: false,
       message: "Failed to get shipping label",
@@ -590,11 +587,11 @@ const cancelShipment = async (req, res) => {
     if (requestedOrderIds.length === 0) {
       return res.status(400).json({
         success: false,
-        message: "Valid Shiprocket order IDs array is required",
+        message: "Valid Professional Courier order IDs array is required",
       });
     }
 
-    const providerResponse = await professionalCourierService.cancelOrders(
+    const providerResponse = await tpcGlobeService.cancelOrders(
       requestedOrderIds,
     );
     const cancelledOrders = [];
@@ -623,7 +620,7 @@ const cancelShipment = async (req, res) => {
         shippingShipmentId: null,
         shippingCourierName: null,
         shippingLatestStatus: "Cancelled",
-        shippingBookingStage: professionalCourierService.BOOKING_STAGE_NOT_CREATED,
+        shippingBookingStage: tpcGlobeService.BOOKING_STAGE_NOT_CREATED,
       });
       cancelledOrders.push(orderRecord.orderNumber);
     }
@@ -632,18 +629,18 @@ const cancelShipment = async (req, res) => {
       success: true,
       message:
         cancelledOrders.length > 0
-          ? "Shiprocket order cancelled successfully"
-          : "Shiprocket did not confirm cancellation for the requested order ID(s).",
+          ? "Professional Courier order cancelled successfully"
+          : "Professional Courier did not confirm cancellation for the requested order ID(s).",
       data: providerResponse.payload,
       cancelledOrders,
       providerCancelledOrderIds: providerResponse.providerCancelledOrderIds,
       notCancelledOrderIds: providerResponse.notCancelledOrderIds,
     });
   } catch (error) {
-    console.error("Cancel Shiprocket order error:", error.message);
+    console.error("Cancel Professional Courier order error:", error.message);
     res.status(500).json({
       success: false,
-      message: "Failed to cancel Shiprocket order",
+      message: "Failed to cancel Professional Courier order",
       error: error.details || error.message,
     });
   }
@@ -661,7 +658,7 @@ const trackShipment = async (req, res) => {
       });
     }
 
-    const trackingData = await professionalCourierService.trackShipment(awbNumber);
+    const trackingData = await tpcGlobeService.trackShipment(awbNumber);
     const orderRecord = await order.findOne({
       where: { trackingNumber: trackingData.awbNumber || awbNumber },
     });
@@ -684,11 +681,48 @@ const trackShipment = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Track Shiprocket shipment error:", error.message);
+    console.error("Track Professional Courier shipment error:", error.message);
     res.status(500).json({
       success: false,
       message: "Failed to track shipment",
       error: error.details || error.message,
+    });
+  }
+};
+
+const getDebugInfo = async (req, res) => {
+  try {
+    const tpcGlobeConfig = {
+      baseUrl: process.env.TPC_GLOBE_API_BASE_URL || "https://api-sandbox.tpcglobe.com/v1",
+      hasApiKey: !!process.env.TPC_GLOBE_API_KEY,
+      apiKeyLength: process.env.TPC_GLOBE_API_KEY ? process.env.TPC_GLOBE_API_KEY.length : 0,
+      serviceType: process.env.TPC_GLOBE_SERVICE_TYPE || "PRO_PREMIUM",
+      paymentMode: process.env.TPC_GLOBE_PAYMENT_MODE || "PREPAID",
+      endpoints: {
+        serviceability: `${process.env.TPC_GLOBE_API_BASE_URL || "https://api-sandbox.tpcglobe.com/v1"}/serviceability`,
+        createShipment: `${process.env.TPC_GLOBE_API_BASE_URL || "https://api-sandbox.tpcglobe.com/v1"}/shipments`,
+        tracking: `${process.env.TPC_GLOBE_API_BASE_URL || "https://api-sandbox.tpcglobe.com/v1"}/tracking`,
+      },
+    };
+
+    res.json({
+      success: true,
+      tpcGlobeConfig,
+      warehouseConfig: {
+        name: process.env.WAREHOUSE_NAME,
+        pincode: process.env.WAREHOUSE_PINCODE,
+        city: process.env.WAREHOUSE_CITY,
+        state: process.env.WAREHOUSE_STATE,
+        address: process.env.WAREHOUSE_ADDRESS,
+      },
+      nodeEnv: process.env.NODE_ENV,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to get debug info",
+      error: error.message,
     });
   }
 };
@@ -704,4 +738,5 @@ module.exports = {
   trackShipment,
   hydrateOrderForShipping,
   syncOrderTrackingState,
+  getDebugInfo,
 };

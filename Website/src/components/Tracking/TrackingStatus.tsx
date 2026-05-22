@@ -143,7 +143,7 @@ const TrackingStatus: React.FC<TrackingStatusProps> = ({ awbNumber }) => {
           </div>
           <div className="text-xs text-secondary flex gap-2">
             <span className="flex items-center gap-1">
-              <MapPin size={12} /> {data.carrier || "Shiprocket"}
+              <MapPin size={12} /> {data.carrier || \"TPC Globe\"}
             </span>
           </div>
         </div>

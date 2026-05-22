@@ -283,6 +283,10 @@ const shippingRoutes = require("./src/routes/shipping.routes");
 app.use("/api/shipping", shippingRoutes);
 console.log("✅ Shipping routes registered at /api/shipping");
 
+const comboRoutes = require("./src/routes/combo.routes");
+app.use("/api", comboRoutes);
+console.log("✅ Combo routes registered at /api/combos");
+
 const settingRoutes = require("./src/routes/setting.routes");
 app.use("/api/settings", settingRoutes);
 console.log("✅ Setting routes registered at /api/settings");
